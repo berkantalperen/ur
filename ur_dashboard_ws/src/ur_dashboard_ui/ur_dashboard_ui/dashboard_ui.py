@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from PyQt5 import QtCore, QtWidgets
 import rclpy
+from rclpy.utilities import remove_ros_args
 from rclpy.node import Node
 from std_srvs.srv import SetBool, Trigger
 
@@ -263,8 +264,9 @@ class DashboardWindow(QtWidgets.QMainWindow):
 
 
 def main() -> None:
-    rclpy.init()
-    app = QtWidgets.QApplication(sys.argv)
+    rclpy.init(args=sys.argv)
+    qt_args = remove_ros_args(sys.argv)
+    app = QtWidgets.QApplication(qt_args)
     node = DashboardNode()
     window = DashboardWindow(node)
     window.show()
