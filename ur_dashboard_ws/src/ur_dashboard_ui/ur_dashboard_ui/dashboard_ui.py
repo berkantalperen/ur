@@ -46,7 +46,7 @@ SUPPORTED_SERVICE_TYPES: Dict[str, ServiceActionSpec] = {
 class DashboardNode(Node):
     def __init__(self) -> None:
         super().__init__("ur_dashboard_ui")
-        self._clients: Dict[str, object] = {}
+        self._client_cache: Dict[str, object] = {}
 
     def discover_services(self) -> List[ServiceInfo]:
         services = []
@@ -60,9 +60,9 @@ class DashboardNode(Node):
 
     def get_client(self, service_name: str, srv_class: object) -> object:
         key = f"{service_name}:{srv_class.__name__}"
-        if key not in self._clients:
-            self._clients[key] = self.create_client(srv_class, service_name)
-        return self._clients[key]
+        if key not in self._client_cache:
+            self._client_cache[key] = self.create_client(srv_class, service_name)
+        return self._client_cache[key]
 
 
 class DashboardWindow(QtWidgets.QMainWindow):
