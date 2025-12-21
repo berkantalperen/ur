@@ -13,10 +13,6 @@ int main(int argc, char** argv)
   // ✅ Create MoveGroupInterface directly
   moveit::planning_interface::MoveGroupInterface move_group(node, "ur_manipulator");
 
-  // ✅ Create goal state publisher (to update orange robot)
-  auto goal_state_pub = node->create_publisher<moveit_msgs::msg::RobotState>(
-    "/move_group/display_robot_state", 10);
-
   // ✅ Set robot's current state as the start
   move_group.setStartStateToCurrentState();
 
@@ -43,19 +39,6 @@ int main(int argc, char** argv)
 
   RCLCPP_INFO(node->get_logger(), "Planning successful. Trajectory published.");
 
-  // ✅ Publish goal robot state (orange robot in RViz)
-  if (!plan.trajectory.joint_trajectory.points.empty()) {
-    const auto& joint_names = plan.trajectory.joint_trajectory.joint_names;
-    const auto& last_point = plan.trajectory.joint_trajectory.points.back();
-
-    moveit_msgs::msg::RobotState goal_state_msg;
-    goal_state_msg.joint_state.name = joint_names;
-    goal_state_msg.joint_state.position = last_point.positions;
-    goal_state_msg.is_diff = true;
-
-    goal_state_pub->publish(goal_state_msg);
-    RCLCPP_INFO(node->get_logger(), "Published goal state to update orange robot.");
-  }
 
   rclcpp::spin_some(node);
   rclcpp::shutdown();
