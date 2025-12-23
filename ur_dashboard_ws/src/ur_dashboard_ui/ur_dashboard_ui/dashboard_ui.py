@@ -6,6 +6,7 @@ from PyQt5 import QtCore, QtWidgets
 import rclpy
 from rclpy.utilities import remove_ros_args
 from rclpy.node import Node
+from rosidl_runtime_py.utilities import get_service
 from std_srvs.srv import SetBool, Trigger
 
 
@@ -19,6 +20,7 @@ class ServiceInfo:
 class FieldSpec:
     name: str
     label: str
+    field_type: str
     widget_type: str
     default: object
 
@@ -37,10 +39,95 @@ SUPPORTED_SERVICE_TYPES: Dict[str, ServiceActionSpec] = {
     "std_srvs/srv/SetBool": ServiceActionSpec(
         srv_class=SetBool,
         fields=(
-            FieldSpec(name="data", label="Data", widget_type="checkbox", default=True),
+            FieldSpec(
+                name="data",
+                label="Data",
+                field_type="boolean",
+                widget_type="checkbox",
+                default=True,
+            ),
         ),
     ),
 }
+
+SERVICE_TYPE_CACHE: Dict[str, Optional[ServiceActionSpec]] = {}
+
+BOOLEAN_TYPES = {"boolean"}
+STRING_TYPES = {"string", "wstring"}
+INTEGER_TYPES = {
+    "int8",
+    "uint8",
+    "int16",
+    "uint16",
+    "int32",
+    "uint32",
+    "int64",
+    "uint64",
+}
+FLOAT_TYPES = {"float", "double"}
+
+
+def _normalize_field_type(field_type: str) -> Optional[str]:
+    if field_type.startswith("string<=") or field_type.startswith("string<"):
+        return "string"
+    if field_type.startswith("wstring<=") or field_type.startswith("wstring<"):
+        return "wstring"
+    if field_type.startswith("sequence<") or field_type.endswith("]"):
+        return None
+    return field_type
+
+
+def _widget_type_for_field(field_type: str) -> Optional[str]:
+    if field_type in BOOLEAN_TYPES:
+        return "checkbox"
+    if field_type in STRING_TYPES | INTEGER_TYPES | FLOAT_TYPES:
+        return "line_edit"
+    return None
+
+
+def _field_label(field_name: str) -> str:
+    return field_name.replace("_", " ").title()
+
+
+def get_service_action_spec(srv_type: str) -> Optional[ServiceActionSpec]:
+    if srv_type in SERVICE_TYPE_CACHE:
+        return SERVICE_TYPE_CACHE[srv_type]
+
+    spec = SUPPORTED_SERVICE_TYPES.get(srv_type)
+    if spec:
+        SERVICE_TYPE_CACHE[srv_type] = spec
+        return spec
+
+    try:
+        srv_class = get_service(srv_type)
+    except (AttributeError, ModuleNotFoundError, ValueError):
+        SERVICE_TYPE_CACHE[srv_type] = None
+        return None
+
+    request = srv_class.Request()
+    fields: List[FieldSpec] = []
+    for name, raw_type in request.get_fields_and_field_types().items():
+        field_type = _normalize_field_type(raw_type)
+        if not field_type:
+            SERVICE_TYPE_CACHE[srv_type] = None
+            return None
+        widget_type = _widget_type_for_field(field_type)
+        if not widget_type:
+            SERVICE_TYPE_CACHE[srv_type] = None
+            return None
+        fields.append(
+            FieldSpec(
+                name=name,
+                label=_field_label(name),
+                field_type=field_type,
+                widget_type=widget_type,
+                default=getattr(request, name),
+            )
+        )
+
+    spec = ServiceActionSpec(srv_class=srv_class, fields=tuple(fields))
+    SERVICE_TYPE_CACHE[srv_type] = spec
+    return spec
 
 
 class DashboardNode(Node):
@@ -182,7 +269,7 @@ class DashboardWindow(QtWidgets.QMainWindow):
             self.call_button.setEnabled(False)
             return
 
-        spec = SUPPORTED_SERVICE_TYPES.get(service.srv_type)
+        spec = get_service_action_spec(service.srv_type)
         if not spec:
             self.call_button.setEnabled(False)
             self.output_text.append(
@@ -208,15 +295,26 @@ class DashboardWindow(QtWidgets.QMainWindow):
             widget.setChecked(bool(field.default))
             return widget
         widget = QtWidgets.QLineEdit()
-        widget.setText(str(field.default))
+        widget.setText("" if field.default is None else str(field.default))
         return widget
+
+    def _parse_line_edit_value(self, field: FieldSpec, text: str) -> object:
+        if text == "" and field.default is not None:
+            return field.default
+        if field.field_type in STRING_TYPES:
+            return text
+        if field.field_type in INTEGER_TYPES:
+            return int(text)
+        if field.field_type in FLOAT_TYPES:
+            return float(text)
+        raise ValueError("Unsupported field type")
 
     def _call_selected_service(self) -> None:
         service = self.current_service
         if not service:
             return
 
-        spec = SUPPORTED_SERVICE_TYPES.get(service.srv_type)
+        spec = get_service_action_spec(service.srv_type)
         if not spec:
             self.output_text.append(
                 f"Cannot call {service.name}; unsupported type {service.srv_type}."
@@ -234,7 +332,14 @@ class DashboardWindow(QtWidgets.QMainWindow):
             if isinstance(widget, QtWidgets.QCheckBox):
                 setattr(request, field.name, widget.isChecked())
             elif isinstance(widget, QtWidgets.QLineEdit):
-                setattr(request, field.name, widget.text())
+                try:
+                    value = self._parse_line_edit_value(field, widget.text())
+                except ValueError:
+                    self.output_text.append(
+                        f"Invalid value for {field.label}; expected {field.field_type}."
+                    )
+                    return
+                setattr(request, field.name, value)
 
         future = client.call_async(request)
         self.pending_calls.append((service, future))
