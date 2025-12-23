@@ -1,0 +1,56 @@
+# ur_imu_teleop_ws
+
+IMU-driven teleoperation helpers for a UR5e using **MoveIt Servo**.
+
+This workspace focuses on **wrist orientation control** using **quaternions** to avoid gimbal lock. A simulated IMU publisher is included so you can test without hardware.
+
+## Packages
+
+- `ur_imu_teleop`
+  - `imu_sim_node`: publishes simulated `sensor_msgs/Imu` messages
+  - `imu_servo_node`: consumes IMU orientation and publishes `geometry_msgs/TwistStamped` to MoveIt Servo
+
+## Key behaviors
+
+- Uses **quaternion error** + proportional gain to compute angular velocity commands.
+- Commands are **clamped** by `max_angular_velocity` (physical limit).
+- Node only uses the **latest IMU orientation**, so it does not follow old paths.
+
+## Build
+
+```bash
+cd /workspace/ur/ur_imu_teleop_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+
+## Run (simulated IMU + servo bridge)
+
+```bash
+ros2 launch ur_imu_teleop imu_teleop.launch.py
+```
+
+> Ensure a MoveIt Servo node is running and listening on `/servo_node/delta_twist_cmds`.
+
+## Parameters
+
+`imu_sim_node`
+- `frame_id` (string): IMU frame id
+- `publish_rate_hz` (float): publish rate
+- `roll_amplitude_rad`, `pitch_amplitude_rad`, `yaw_amplitude_rad` (float): sinusoidal amplitudes
+- `angular_speed_rad_s` (float): sinusoidal speed
+
+`imu_servo_node`
+- `imu_topic` (string): IMU topic name
+- `command_topic` (string): MoveIt Servo command topic
+- `base_frame` (string): base frame for TF lookup
+- `ee_frame` (string): end-effector frame for TF lookup
+- `publish_rate_hz` (float): command rate
+- `kp` (float): proportional gain
+- `max_angular_velocity` (float): physical angular velocity limit (rad/s)
+- `imu_timeout_s` (float): drop IMU data older than this value
+
+## Notes
+
+- The IMU orientation is treated as a **target orientation in the base frame**. If your IMU frame differs, you should add a TF transform or pre-rotate the quaternion before publishing.
+- `imu_servo_node` publishes **only angular velocity** commands for wrist orientation. Linear motion is set to zero.
