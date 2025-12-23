@@ -141,6 +141,8 @@ class DashboardNode(Node):
             if "dashboard" not in name:
                 continue
             for srv_type in types:
+                if srv_type.startswith("rcl_interfaces/srv/"):
+                    continue
                 services.append(ServiceInfo(name=name, srv_type=srv_type))
         services.sort(key=lambda item: (item.name, item.srv_type))
         return services
@@ -162,6 +164,7 @@ class DashboardWindow(QtWidgets.QMainWindow):
         self.pending_calls: List[Tuple[ServiceInfo, object]] = []
         self.current_service: Optional[ServiceInfo] = None
         self.field_widgets: Dict[str, QtWidgets.QWidget] = {}
+        self.last_unsupported_service: Optional[ServiceInfo] = None
 
         self._build_ui()
         self._connect_signals()
@@ -272,11 +275,14 @@ class DashboardWindow(QtWidgets.QMainWindow):
         spec = get_service_action_spec(service.srv_type)
         if not spec:
             self.call_button.setEnabled(False)
-            self.output_text.append(
-                f"Service {service.name} uses unsupported type {service.srv_type}."
-            )
+            if service != self.last_unsupported_service:
+                self.output_text.append(
+                    f"Service {service.name} uses unsupported type {service.srv_type}."
+                )
+                self.last_unsupported_service = service
             return
 
+        self.last_unsupported_service = None
         for field in spec.fields:
             widget = self._create_field_widget(field)
             self.field_widgets[field.name] = widget
