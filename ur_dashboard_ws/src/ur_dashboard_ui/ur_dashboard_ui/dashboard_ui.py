@@ -75,6 +75,7 @@ class DashboardWindow(QtWidgets.QMainWindow):
         self.pending_calls: List[Tuple[ServiceInfo, object]] = []
         self.current_service: Optional[ServiceInfo] = None
         self.field_widgets: Dict[str, QtWidgets.QWidget] = {}
+        self._unsupported_warned: set[str] = set()
 
         self._build_ui()
         self._connect_signals()
@@ -185,9 +186,12 @@ class DashboardWindow(QtWidgets.QMainWindow):
         spec = SUPPORTED_SERVICE_TYPES.get(service.srv_type)
         if not spec:
             self.call_button.setEnabled(False)
-            self.output_text.append(
-                f"Service {service.name} uses unsupported type {service.srv_type}."
-            )
+            service_key = f"{service.name}:{service.srv_type}"
+            if service_key not in self._unsupported_warned:
+                self.output_text.append(
+                    f"Service {service.name} uses unsupported type {service.srv_type}."
+                )
+                self._unsupported_warned.add(service_key)
             return
 
         for field in spec.fields:
