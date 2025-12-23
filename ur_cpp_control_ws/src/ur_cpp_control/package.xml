@@ -13,6 +13,8 @@
   <build_depend>geometry_msgs</build_depend>
   <build_depend>trajectory_msgs</build_depend>
   <build_depend>sensor_msgs</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_geometry_msgs</build_depend>
   <build_depend>tf2_ros</build_depend>
   <build_depend>moveit_core</build_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
@@ -21,6 +23,8 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>trajectory_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>moveit_core</exec_depend>
   <exec_depend>moveit_ros_planning_interface</exec_depend>
