@@ -16,7 +16,16 @@ This workspace focuses on **wrist orientation control** using **quaternions** to
 - Commands are **clamped** by `max_angular_velocity` (physical limit).
 - Node only uses the **latest IMU orientation**, so it does not follow old paths.
 
-## Build
+## What to start first (prereqs)
+
+1. Start the UR driver (real robot or URSim).
+2. Start MoveIt Servo for the UR5e (so it listens on `/servo_node/delta_twist_cmds`).
+3. Then launch the IMU teleop nodes from this workspace.
+
+If you already have a MoveIt Servo bringup launch, make sure it publishes TF for
+`base_link` → `tool0` and has the `delta_twist_cmds` input enabled.
+
+## Build this workspace
 
 ```bash
 cd /workspace/ur/ur_imu_teleop_ws
@@ -30,7 +39,20 @@ source install/setup.bash
 ros2 launch ur_imu_teleop imu_teleop.launch.py
 ```
 
+This launch starts:
+- `imu_sim_node` → publishes `sensor_msgs/Imu` on `/imu/data`
+- `imu_servo_node` → publishes `geometry_msgs/TwistStamped` on `/servo_node/delta_twist_cmds`
+
 > Ensure a MoveIt Servo node is running and listening on `/servo_node/delta_twist_cmds`.
+
+## Swap the simulator for a real IMU
+
+When your wearable IMU is ready, stop `imu_sim_node` and point `imu_servo_node`
+at your IMU topic:
+
+```bash
+ros2 run ur_imu_teleop imu_servo_node --ros-args -p imu_topic:=/your/imu/topic
+```
 
 ## Parameters
 
@@ -49,6 +71,13 @@ ros2 launch ur_imu_teleop imu_teleop.launch.py
 - `kp` (float): proportional gain
 - `max_angular_velocity` (float): physical angular velocity limit (rad/s)
 - `imu_timeout_s` (float): drop IMU data older than this value
+
+## Quick sanity checks
+
+```bash
+ros2 topic echo /imu/data --once
+ros2 topic echo /servo_node/delta_twist_cmds --once
+```
 
 ## Notes
 
