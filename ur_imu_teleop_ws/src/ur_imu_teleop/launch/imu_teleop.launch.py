@@ -36,6 +36,7 @@ def generate_launch_description():
                         "kp": 2.0,
                         "max_angular_velocity": 1.0,
                         "imu_timeout_s": 0.5,
+                        "tf_warn_throttle_s": 2.0,
                     }
                 ],
             ),

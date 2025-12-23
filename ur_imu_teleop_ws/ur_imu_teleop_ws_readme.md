@@ -71,6 +71,7 @@ ros2 run ur_imu_teleop imu_servo_node --ros-args -p imu_topic:=/your/imu/topic
 - `kp` (float): proportional gain
 - `max_angular_velocity` (float): physical angular velocity limit (rad/s)
 - `imu_timeout_s` (float): drop IMU data older than this value
+- `tf_warn_throttle_s` (float): throttle TF warning logs (seconds)
 
 ## Quick sanity checks
 
@@ -83,3 +84,8 @@ ros2 topic echo /servo_node/delta_twist_cmds --once
 
 - The IMU orientation is treated as a **target orientation in the base frame**. If your IMU frame differs, you should add a TF transform or pre-rotate the quaternion before publishing.
 - `imu_servo_node` publishes **only angular velocity** commands for wrist orientation. Linear motion is set to zero.
+
+## Troubleshooting
+
+- **TF lookup failed: "base_link" passed to lookupTransform argument target_frame does not exist**
+  - MoveIt/UR driver is not publishing TF yet. Make sure the UR driver + MoveIt Servo stack is running and that the frames match your robot (`base_frame` / `ee_frame` parameters).

@@ -60,9 +60,11 @@ class ImuServo(Node):
         self.declare_parameter("kp", 2.0)
         self.declare_parameter("max_angular_velocity", 1.0)
         self.declare_parameter("imu_timeout_s", 0.5)
+        self.declare_parameter("tf_warn_throttle_s", 2.0)
 
         self.latest_orientation: Optional[Tuple[float, float, float, float]] = None
         self.latest_stamp = None
+        self.last_tf_warn_time = None
 
         imu_topic = self.get_parameter("imu_topic").get_parameter_value().string_value
         self.create_subscription(Imu, imu_topic, self.imu_callback, 10)
@@ -98,7 +100,7 @@ class ImuServo(Node):
         try:
             transform = self.tf_buffer.lookup_transform(base_frame, ee_frame, rclpy.time.Time())
         except TransformException as ex:
-            self.get_logger().warn(f"TF lookup failed: {ex}")
+            self._warn_throttled(f"TF lookup failed: {ex}")
             return
 
         current_q = (
@@ -128,6 +130,17 @@ class ImuServo(Node):
         twist.twist.angular.y = ang_y
         twist.twist.angular.z = ang_z
         self.publisher.publish(twist)
+
+    def _warn_throttled(self, message: str):
+        now = self.get_clock().now()
+        throttle_s = self.get_parameter("tf_warn_throttle_s").get_parameter_value().double_value
+        if self.last_tf_warn_time is None:
+            self.last_tf_warn_time = now
+            self.get_logger().warn(message)
+            return
+        if (now - self.last_tf_warn_time).nanoseconds * 1e-9 >= throttle_s:
+            self.last_tf_warn_time = now
+            self.get_logger().warn(message)
 
 
 def main():
