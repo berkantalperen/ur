@@ -1,0 +1,14 @@
+# File: /ur/docker-compose.windows.yml
+services:
+  dev:
+    # Use the same image, just change how it connects
+    network_mode: "bridge"
+    ports:
+      # Forward the Reverse Interface port (Robot -> Driver)
+      - "50002:50002" 
+      # Optional: Dashboard server, etc.
+      - "29999:29999"
+
+    environment:
+      # Point display to the Windows Host (requires VcXsrv installed)
+      - DISPLAY=host.docker.internal:0.0

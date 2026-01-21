@@ -1,0 +1,23 @@
+# File: /ur/docker-compose.yml
+services:
+  dev:
+    build: .
+    image: ur_dev_env:latest
+    container_name: ur_workstation
+    
+    # LINUX NETWORKING: Direct access to Ethernet port for Robot connection
+    network_mode: "host"
+    privileged: true
+    
+    # GUI: Pass the X11 display for PyQt5
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+    
+    # STORAGE: Mount your current folder (.) to /root/ur_ws/src
+    volumes:
+      - .:/root/ur_ws/src
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      
+    stdin_open: true
+    tty: true
