@@ -173,10 +173,9 @@ class DashboardWindow(QtWidgets.QMainWindow):
         self.spin_timer.timeout.connect(self._spin_once)
         self.spin_timer.start(50)
 
-        self.refresh_timer = QtCore.QTimer(self)
-        self.refresh_timer.timeout.connect(self.refresh_services)
-        self.refresh_timer.start(2000)
+        # -- Auto-refresh timer removed --
 
+        # Initial load
         self.refresh_services()
 
     def _build_ui(self) -> None:
@@ -370,7 +369,7 @@ class DashboardWindow(QtWidgets.QMainWindow):
 
     def closeEvent(self, event: QtCore.QEvent) -> None:
         self.spin_timer.stop()
-        self.refresh_timer.stop()
+        # -- Auto-refresh timer stop removed --
         super().closeEvent(event)
 
 

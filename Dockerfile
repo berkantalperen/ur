@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     ros-jazzy-ur-moveit-config \
     ros-jazzy-moveit \
     ros-jazzy-moveit-ros-planning-interface \
+    ros-jazzy-ros2controlcli \
     git \
     && rm -rf /var/lib/apt/lists/*
 
