@@ -2,8 +2,7 @@ import os
 import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, FindExecutable
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
+from launch.substitutions import PathJoinSubstitution
 from ament_index_python.packages import get_package_share_directory
 
 def load_file(package_name, file_path):
@@ -51,15 +50,9 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Load SRDF
-    # We need to find where ur_moveit_config is
-    ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
-    srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
-    # Process xacro to get SRDF content
-    robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
-    )
+    # Load URDF + SRDF directly from the installed ur_moveit_config package.
+    urdf_content = load_file('ur_moveit_config', 'config/ur.urdf')
+    srdf_content = load_file('ur_moveit_config', 'config/ur.srdf')
 
     # Path to Servo Config
     servo_config_path = os.path.join(
@@ -71,18 +64,29 @@ def generate_launch_description():
     # C. MoveIt Servo
     # We pass the config file AND explicit overrides to ensure parameters are seen
     # regardless of namespace quirks.
+    servo_parameters = [
+        servo_config_path,
+        {'moveit_servo.command_in_type': 'speed_units'},
+        {'command_in_type': 'speed_units'}, # Try flat as well
+        {'moveit_servo.move_group_name': 'ur_manipulator'},
+        {'move_group_name': 'ur_manipulator'}
+    ]
+    if urdf_content:
+        servo_parameters.append({'robot_description': urdf_content})
+    else:
+        print("WARNING: ur_moveit_config/config/ur.urdf not found; "
+              "robot_description will be loaded from /robot_description.")
+    if srdf_content:
+        servo_parameters.append({'robot_description_semantic': srdf_content})
+    else:
+        print("WARNING: ur_moveit_config/config/ur.srdf not found; "
+              "robot_description_semantic will be loaded from /robot_description_semantic.")
+
     servo_node = Node(
         package='moveit_servo',
         executable='servo_node',
         name='servo_node',
-        parameters=[
-            servo_config_path,
-            {'robot_description_semantic': robot_description_semantic_content},
-            {'moveit_servo.command_in_type': 'speed_units'}, 
-            {'command_in_type': 'speed_units'}, # Try flat as well
-            {'moveit_servo.move_group_name': 'ur_manipulator'},
-            {'move_group_name': 'ur_manipulator'} 
-        ],
+        parameters=servo_parameters,
         output='screen'
     )
 
