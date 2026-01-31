@@ -2,8 +2,7 @@ import os
 import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, FindExecutable
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
+from launch.substitutions import PathJoinSubstitution
 from ament_index_python.packages import get_package_share_directory
 
 def load_file(package_name, file_path):
@@ -51,15 +50,9 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Load SRDF
-    # We need to find where ur_moveit_config is
-    ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
-    srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
-    # Process xacro to get SRDF content
-    robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
-    )
+    # Load URDF + SRDF directly from the installed ur_moveit_config package.
+    urdf_content = load_file('ur_moveit_config', 'config/ur.urdf')
+    srdf_content = load_file('ur_moveit_config', 'config/ur.srdf')
 
     # Path to Servo Config
     servo_config_path = os.path.join(
@@ -77,7 +70,8 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_config_path,
-            {'robot_description_semantic': robot_description_semantic_content},
+            {'robot_description': urdf_content},
+            {'robot_description_semantic': srdf_content},
             {'moveit_servo.command_in_type': 'speed_units'}, 
             {'command_in_type': 'speed_units'}, # Try flat as well
             {'moveit_servo.move_group_name': 'ur_manipulator'},
