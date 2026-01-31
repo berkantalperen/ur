@@ -7,12 +7,33 @@ from launch.actions import ExecuteProcess, DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # Load SRDF
+    # Load URDF + SRDF to keep robot_description and robot_description_semantic aligned.
+    ur_description_path = get_package_share_directory('ur_description')
+    urdf_path = os.path.join(ur_description_path, 'urdf', 'ur.urdf.xacro')
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
+
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            urdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
+    )
     robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            srdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
     )
 
     # Load Servo Config Manually
@@ -54,6 +75,7 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_params,
+            {'robot_description': robot_description_content},
             {'robot_description_semantic': robot_description_semantic_content}
         ],
         output='screen'

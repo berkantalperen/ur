@@ -51,14 +51,33 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Load SRDF
-    # We need to find where ur_moveit_config is
+    # Load URDF + SRDF to keep robot_description and robot_description_semantic aligned.
+    ur_description_path = get_package_share_directory('ur_description')
+    urdf_path = os.path.join(ur_description_path, 'urdf', 'ur.urdf.xacro')
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
-    # Process xacro to get SRDF content
+
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            urdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
+    )
     robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            srdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
     )
 
     # Path to Servo Config
@@ -77,6 +96,7 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_config_path,
+            {'robot_description': robot_description_content},
             {'robot_description_semantic': robot_description_semantic_content},
             {'moveit_servo.command_in_type': 'speed_units'}, 
             {'command_in_type': 'speed_units'}, # Try flat as well
