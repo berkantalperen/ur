@@ -2,18 +2,8 @@ import os
 import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, FindExecutable
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
+from launch.substitutions import PathJoinSubstitution, Command, FindExecutable
 from ament_index_python.packages import get_package_share_directory
-
-def load_file(package_name, file_path):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-    try:
-        with open(absolute_file_path, 'r') as file:
-            return file.read()
-    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
-        return None
 
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -51,14 +41,33 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Load SRDF
-    # We need to find where ur_moveit_config is
+    # Load URDF + SRDF via xacro to keep robot_description aligned.
+    ur_description_path = get_package_share_directory('ur_description')
+    urdf_path = os.path.join(ur_description_path, 'urdf', 'ur.urdf.xacro')
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
-    # Process xacro to get SRDF content
+
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            urdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
+    )
     robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            srdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+        ]
     )
 
     # Path to Servo Config
@@ -77,6 +86,7 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_config_path,
+            {'robot_description': robot_description_content},
             {'robot_description_semantic': robot_description_semantic_content},
             {'moveit_servo.command_in_type': 'speed_units'}, 
             {'command_in_type': 'speed_units'}, # Try flat as well
