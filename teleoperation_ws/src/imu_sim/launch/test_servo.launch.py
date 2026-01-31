@@ -21,31 +21,20 @@ def generate_launch_description():
         'config',
         'ur_servo_config.yaml'
     )
-    
+
     with open(servo_config_path, 'r') as f:
-        yaml_content = yaml.safe_load(f)
+        servo_yaml = yaml.safe_load(f)
 
-    # Extract params (servo_node -> ros__parameters -> moveit_servo) or fallback
-    try:
-        servo_params = yaml_content['servo_node']['ros__parameters']
-    except (KeyError, TypeError):
-        servo_params = yaml_content
-
-    # Ensure sub-dictionaries exist
-    if 'moveit_servo' not in servo_params:
-        servo_params['moveit_servo'] = {}
-
-    # OVERRIDES
-    servo_params['moveit_servo']['command_in_type'] = 'speed_units'
-    servo_params['moveit_servo']['move_group_name'] = 'ur_manipulator'
-    servo_params['moveit_servo']['command_out_topic'] = '/servo_debug_out'
-    servo_params['moveit_servo']['check_collisions'] = False
-    
-    # ROOT PARAMS
-    servo_params['command_in_type'] = 'speed_units' # Flattened just in case
-    servo_params['command_out_topic'] = '/servo_debug_out'
-    servo_params['check_collisions'] = False
-    servo_params['use_sim_time'] = True # CRITICAL
+    servo_params = {
+        'moveit_servo': {
+            **servo_yaml,
+            'command_in_type': 'speed_units',
+            'move_group_name': 'ur_manipulator',
+            'command_out_topic': '/servo_debug_out',
+            'check_collisions': False,
+            'use_sim_time': True
+        }
+    }
 
     # Isolated Servo Node
     servo_node = Node(

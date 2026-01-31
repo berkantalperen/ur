@@ -61,27 +61,21 @@ def generate_launch_description():
         [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
     )
 
-    # Path to Servo Config
-    servo_config_path = os.path.join(
-        get_package_share_directory('imu_sim'),
-        'config',
-        'ur_servo_config.yaml'
-    )
-
     # C. MoveIt Servo
-    # We pass the config file AND explicit overrides to ensure parameters are seen
-    # regardless of namespace quirks.
+    servo_params = {
+        'moveit_servo': {
+            **servo_config,
+            'command_in_type': 'speed_units',
+            'move_group_name': 'ur_manipulator'
+        }
+    }
     servo_node = Node(
         package='moveit_servo',
         executable='servo_node',
         name='servo_node',
         parameters=[
-            servo_config_path,
-            {'robot_description_semantic': robot_description_semantic_content},
-            {'moveit_servo.command_in_type': 'speed_units'}, 
-            {'command_in_type': 'speed_units'}, # Try flat as well
-            {'moveit_servo.move_group_name': 'ur_manipulator'},
-            {'move_group_name': 'ur_manipulator'} 
+            servo_params,
+            {'robot_description_semantic': robot_description_semantic_content}
         ],
         output='screen'
     )
