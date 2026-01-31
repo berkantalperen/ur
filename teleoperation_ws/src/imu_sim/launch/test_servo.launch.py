@@ -19,7 +19,7 @@ def generate_launch_description():
             ' ',
             urdf_path,
             ' ',
-            'name:=ur',
+            'name:=ur5e',
             ' ',
             'ur_type:=ur5e',
         ]
@@ -30,7 +30,7 @@ def generate_launch_description():
             ' ',
             srdf_path,
             ' ',
-            'name:=ur',
+            'name:=ur5e',
             ' ',
             'ur_type:=ur5e',
         ]
