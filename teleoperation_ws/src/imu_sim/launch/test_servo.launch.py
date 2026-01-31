@@ -7,11 +7,13 @@ from ament_index_python.packages import get_package_share_directory
 def load_file(package_name, file_path):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
+    if not os.path.exists(absolute_file_path):
+        raise FileNotFoundError(f"File not found: {absolute_file_path}")
     try:
         with open(absolute_file_path, 'r') as file:
             return file.read()
-    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
-        return None
+    except EnvironmentError as exc: # parent of IOError, OSError *and* WindowsError where available
+        raise RuntimeError(f"Failed to read file: {absolute_file_path}") from exc
 
 def generate_launch_description():
     # Load URDF + SRDF directly from the installed ur_moveit_config package.
