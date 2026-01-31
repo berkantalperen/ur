@@ -61,27 +61,35 @@ def generate_launch_description():
         [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
     )
 
-    # Path to Servo Config
-    servo_config_path = os.path.join(
-        get_package_share_directory('imu_sim'),
-        'config',
-        'ur_servo_config.yaml'
+    # Extract servo parameters and mirror key entries at the root level to
+    # support MoveIt Servo versions that do not use the moveit_servo namespace.
+    try:
+        servo_params = servo_config['servo_node']['ros__parameters']
+    except (KeyError, TypeError):
+        servo_params = servo_config or {}
+
+    if 'moveit_servo' not in servo_params:
+        servo_params['moveit_servo'] = {}
+
+    servo_params['moveit_servo'].setdefault('command_in_type', 'speed_units')
+    servo_params['moveit_servo'].setdefault('move_group_name', 'ur_manipulator')
+    servo_params.setdefault(
+        'command_in_type',
+        servo_params['moveit_servo'].get('command_in_type', 'speed_units')
+    )
+    servo_params.setdefault(
+        'move_group_name',
+        servo_params['moveit_servo'].get('move_group_name', 'ur_manipulator')
     )
 
     # C. MoveIt Servo
-    # We pass the config file AND explicit overrides to ensure parameters are seen
-    # regardless of namespace quirks.
     servo_node = Node(
         package='moveit_servo',
         executable='servo_node',
         name='servo_node',
         parameters=[
-            servo_config_path,
-            {'robot_description_semantic': robot_description_semantic_content},
-            {'moveit_servo.command_in_type': 'speed_units'}, 
-            {'command_in_type': 'speed_units'}, # Try flat as well
-            {'moveit_servo.move_group_name': 'ur_manipulator'},
-            {'move_group_name': 'ur_manipulator'} 
+            servo_params,
+            {'robot_description_semantic': robot_description_semantic_content}
         ],
         output='screen'
     )
