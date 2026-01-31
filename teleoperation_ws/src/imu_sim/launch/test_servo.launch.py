@@ -2,18 +2,71 @@ import os
 import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, FindExecutable
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
+from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
 from ament_index_python.packages import get_package_share_directory
 
-def generate_launch_description():
-    # Load SRDF
+def load_file(package_name, file_path):
+    package_path = get_package_share_directory(package_name)
+    absolute_file_path = os.path.join(package_path, file_path)
+    try:
+        with open(absolute_file_path, 'r') as file:
+            return file.read()
+    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
+        return None
+
+def first_existing_path(paths):
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return None
+
+def load_robot_description():
+    ur_description_path = get_package_share_directory('ur_description')
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
-    srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
-    
-    robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
-    )
+
+    urdf_xacro_path = first_existing_path([
+        os.path.join(ur_description_path, 'urdf', 'ur.urdf.xacro'),
+        os.path.join(ur_moveit_config_path, 'urdf', 'ur.urdf.xacro'),
+    ])
+    if urdf_xacro_path:
+        return Command(
+            [
+                PathJoinSubstitution([FindExecutable(name='xacro')]),
+                ' ',
+                urdf_xacro_path,
+                ' ',
+                'name:=ur',
+                ' ',
+                'ur_type:=ur5e',
+            ]
+        )
+
+    return load_file('ur_moveit_config', 'config/ur.urdf')
+
+def load_robot_description_semantic():
+    ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
+    srdf_xacro_path = first_existing_path([
+        os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro'),
+        os.path.join(ur_moveit_config_path, 'config', 'ur.srdf.xacro'),
+    ])
+    if srdf_xacro_path:
+        return Command(
+            [
+                PathJoinSubstitution([FindExecutable(name='xacro')]),
+                ' ',
+                srdf_xacro_path,
+                ' ',
+                'name:=ur',
+                ' ',
+                'ur_type:=ur5e',
+            ]
+        )
+
+    return load_file('ur_moveit_config', 'config/ur.srdf')
+
+def generate_launch_description():
+    robot_description_content = load_robot_description()
+    robot_description_semantic_content = load_robot_description_semantic()
 
     # Load Servo Config Manually
     servo_config_path = os.path.join(
@@ -54,7 +107,8 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_params,
-            {'robot_description_semantic': robot_description_semantic_content}
+            {'robot_description': robot_description_content},
+            {'robot_description_semantic': robot_description_semantic_content},
         ],
         output='screen'
     )
