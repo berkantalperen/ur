@@ -1,5 +1,7 @@
 servo_node:
   ros__parameters:
+    command_in_type: "speed_units"
+    command_out_type: "trajectory_msgs/JointTrajectory"
     moveit_servo:
       use_gazebo: false
       
