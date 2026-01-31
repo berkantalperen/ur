@@ -9,8 +9,14 @@ def generate_launch_description():
     # Load URDF + SRDF using MoveItConfigsBuilder to keep descriptions aligned.
     moveit_config = (
         MoveItConfigsBuilder("ur", package_name="ur_moveit_config")
-        .robot_description(file_path="config/ur.urdf")
-        .robot_description_semantic(file_path="config/ur.srdf")
+        .robot_description(
+            file_path="config/ur.urdf.xacro",
+            mappings={"name": "ur5e", "ur_type": "ur5e"},
+        )
+        .robot_description_semantic(
+            file_path="config/ur.srdf.xacro",
+            mappings={"name": "ur5e", "ur_type": "ur5e"},
+        )
         .to_moveit_configs()
     )
 
