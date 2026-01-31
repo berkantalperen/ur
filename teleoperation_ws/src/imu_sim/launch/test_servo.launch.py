@@ -7,9 +7,40 @@ from launch.actions import ExecuteProcess, DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
 
 def generate_launch_description():
-    # Load SRDF
+    # Load URDF + SRDF
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
+    urdf_path = os.path.join(ur_moveit_config_path, 'config', 'ur.urdf.xacro')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
+
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            urdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+            ' ',
+            'safety_limits:=true',
+            ' ',
+            'safety_pos_margin:=0.15',
+            ' ',
+            'safety_k_position:=20',
+            ' ',
+            'joint_limit_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'joint_limits.yaml'),
+            ' ',
+            'kinematics_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'kinematics.yaml'),
+            ' ',
+            'physical_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'physical_parameters.yaml'),
+            ' ',
+            'visual_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'visual_parameters.yaml'),
+        ]
+    )
     
     robot_description_semantic_content = Command(
         [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
@@ -54,7 +85,30 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_params,
+            {'robot_description': robot_description_content},
             {'robot_description_semantic': robot_description_semantic_content}
+        ],
+        output='screen'
+    )
+
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[
+            {'use_sim_time': True},
+            {'robot_description': robot_description_content},
+        ],
+        output='screen'
+    )
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        parameters=[
+            {'use_sim_time': True},
+            {'robot_description': robot_description_content},
         ],
         output='screen'
     )
@@ -68,5 +122,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         clock_bridge,
+        joint_state_publisher,
+        robot_state_publisher,
         servo_node
     ])

@@ -51,10 +51,41 @@ def generate_launch_description():
         output='screen'
     )
 
-    # Load SRDF
+    # Load URDF + SRDF
     # We need to find where ur_moveit_config is
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
+    urdf_path = os.path.join(ur_moveit_config_path, 'config', 'ur.urdf.xacro')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
+
+    robot_description_content = Command(
+        [
+            PathJoinSubstitution([FindExecutable(name='xacro')]),
+            ' ',
+            urdf_path,
+            ' ',
+            'name:=ur',
+            ' ',
+            'ur_type:=ur5e',
+            ' ',
+            'safety_limits:=true',
+            ' ',
+            'safety_pos_margin:=0.15',
+            ' ',
+            'safety_k_position:=20',
+            ' ',
+            'joint_limit_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'joint_limits.yaml'),
+            ' ',
+            'kinematics_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'kinematics.yaml'),
+            ' ',
+            'physical_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'physical_parameters.yaml'),
+            ' ',
+            'visual_parameters_file:=',
+            os.path.join(ur_moveit_config_path, 'config', 'visual_parameters.yaml'),
+        ]
+    )
     
     # Process xacro to get SRDF content
     robot_description_semantic_content = Command(
@@ -77,11 +108,34 @@ def generate_launch_description():
         name='servo_node',
         parameters=[
             servo_config_path,
+            {'robot_description': robot_description_content},
             {'robot_description_semantic': robot_description_semantic_content},
             {'moveit_servo.command_in_type': 'speed_units'}, 
             {'command_in_type': 'speed_units'}, # Try flat as well
             {'moveit_servo.move_group_name': 'ur_manipulator'},
             {'move_group_name': 'ur_manipulator'} 
+        ],
+        output='screen'
+    )
+
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        parameters=[
+            {'use_sim_time': True},
+            {'robot_description': robot_description_content},
+        ],
+        output='screen'
+    )
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        parameters=[
+            {'use_sim_time': True},
+            {'robot_description': robot_description_content},
         ],
         output='screen'
     )
@@ -99,6 +153,8 @@ def generate_launch_description():
     return LaunchDescription([
         imu_sim_node,
         safety_node,
+        joint_state_publisher,
+        robot_state_publisher,
         servo_node,
         rviz_node
     ])
