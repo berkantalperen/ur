@@ -52,9 +52,8 @@ def generate_launch_description():
     )
 
     # Load URDF + SRDF to keep robot_description and robot_description_semantic aligned.
-    ur_description_path = get_package_share_directory('ur_description')
-    urdf_path = os.path.join(ur_description_path, 'urdf', 'ur.urdf.xacro')
     ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
+    urdf_path = os.path.join(ur_moveit_config_path, 'config', 'ur.urdf.xacro')
     srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
 
     robot_description_content = Command(
