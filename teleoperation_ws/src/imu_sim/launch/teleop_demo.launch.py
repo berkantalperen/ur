@@ -2,103 +2,42 @@ import os
 import yaml
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command, FindExecutable
-from launch.actions import ExecuteProcess, DeclareLaunchArgument
 from ament_index_python.packages import get_package_share_directory
-
-def load_file(package_name, file_path):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-    try:
-        with open(absolute_file_path, 'r') as file:
-            return file.read()
-    except EnvironmentError: # parent of IOError, OSError *and* WindowsError where available
-        return None
-
-def load_yaml(package_name, file_path):
-    package_path = get_package_share_directory(package_name)
-    absolute_file_path = os.path.join(package_path, file_path)
-    print(f"DEBUG: Loading YAML from {absolute_file_path}")
-    if not os.path.exists(absolute_file_path):
-        raise FileNotFoundError(f"File not found: {absolute_file_path}")
-    try:
-        with open(absolute_file_path, 'r') as file:
-            return yaml.safe_load(file)
-    except Exception as e:
-        print(f"DEBUG: Error loading YAML: {e}")
-        raise e
+from launch.substitutions import Command, FindExecutable, PathJoinSubstitution
 
 def generate_launch_description():
-    # 1. Get configuration
-    servo_config = load_yaml('imu_sim', 'config/ur_servo_config.yaml')
-    rviz_config_file = PathJoinSubstitution([get_package_share_directory('imu_sim'), 'config', 'teleop.rviz'])
+    # Paths
+    imu_sim_path = get_package_share_directory('imu_sim')
+    ur_desc_path = get_package_share_directory('ur_description')
+    ur_moveit_path = get_package_share_directory('ur_moveit_config')
 
-    # 2. Define Nodes
-
-    # A. imu_sim_server (Input)
-    imu_sim_node = Node(
-        package='imu_sim',
-        executable='imu_sim',
-        name='imu_sim_server',
-        output='screen'
-    )
-
-    # B. safety_node (Clamping)
-    safety_node = Node(
-        package='imu_sim',
-        executable='safety_node',
-        name='safety_node',
-        output='screen'
-    )
-
-    # Load SRDF
-    # We need to find where ur_moveit_config is
-    ur_moveit_config_path = get_package_share_directory('ur_moveit_config')
-    srdf_path = os.path.join(ur_moveit_config_path, 'srdf', 'ur.srdf.xacro')
+    # Descriptions
+    robot_description = {'robot_description': Command([PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', os.path.join(ur_desc_path, 'urdf', 'ur.urdf.xacro'), ' name:=ur5e ur_type:=ur5e'])}
+    robot_description_semantic = {'robot_description_semantic': Command([PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', os.path.join(ur_moveit_path, 'srdf', 'ur.srdf.xacro'), ' name:=ur5e ur_type:=ur5e'])}
     
-    # Process xacro to get SRDF content
-    robot_description_semantic_content = Command(
-        [PathJoinSubstitution([FindExecutable(name='xacro')]), ' ', srdf_path, ' ', 'name:=ur', ' ', 'ur_type:=ur5e']
-    )
+    with open(os.path.join(ur_moveit_path, 'config', 'kinematics.yaml'), 'r') as f:
+        kinematics_yaml = {'robot_description_kinematics': yaml.safe_load(f)}
 
-    # Path to Servo Config
-    servo_config_path = os.path.join(
-        get_package_share_directory('imu_sim'),
-        'config',
-        'ur_servo_config.yaml'
-    )
-
-    # C. MoveIt Servo
-    # We pass the config file AND explicit overrides to ensure parameters are seen
-    # regardless of namespace quirks.
-    servo_node = Node(
-        package='moveit_servo',
-        executable='servo_node',
-        name='servo_node',
-        parameters=[
-            servo_config_path,
-            {'robot_description_semantic': robot_description_semantic_content},
-            {'moveit_servo.command_in_type': 'speed_units'}, 
-            {'command_in_type': 'speed_units'}, # Try flat as well
-            {'moveit_servo.move_group_name': 'ur_manipulator'},
-            {'move_group_name': 'ur_manipulator'} 
-        ],
-        output='screen'
-    )
-
-    # D. RViz
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config_file]
-    )
-
+    # Flat Parameters
+    servo_params = {
+        "moveit_servo.use_gazebo": False,
+        "moveit_servo.command_in_type": "speed_units",
+        "moveit_servo.command_in_topic": "/servo_server/delta_twist_cmds",
+        "moveit_servo.command_out_topic": "/servo_raw",
+        "moveit_servo.publish_period": 0.01,
+        "moveit_servo.move_group_name": "ur_manipulator",
+        "moveit_servo.is_primary_planning_scene_monitor": True,
+        "moveit_servo.check_collisions": False,
+        "moveit_servo.robot_link_command_frame": "base_link",
+        "moveit_servo.planning_frame": "base_link",
+        "moveit_servo.ee_frame_name": "tool0",
+        "moveit_servo.joint_topic": "/joint_states_fixed", # This matches the bridge
+    }
 
     return LaunchDescription([
-        imu_sim_node,
-        safety_node,
-        servo_node,
-        rviz_node
+        Node(package='tf2_ros', executable='static_transform_publisher', name='stf', arguments=['0','0','0','0','0','0','world','base_link']),
+        Node(package='imu_sim', executable='qos_bridge', name='bridge'),
+        Node(package='robot_state_publisher', executable='robot_state_publisher', parameters=[robot_description]),
+        Node(package='moveit_servo', executable='servo_node', name='servo_node', parameters=[servo_params, robot_description, robot_description_semantic, kinematics_yaml]),
+        Node(package='rviz2', executable='rviz2', arguments=['-d', os.path.join(imu_sim_path, 'config', 'teleop.rviz')], parameters=[robot_description, kinematics_yaml])
     ])

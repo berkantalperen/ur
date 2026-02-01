@@ -1,0 +1,70 @@
+servo_node:
+  ros__parameters:
+    moveit_servo:
+      # -------------------------------------------------------------------------
+      # CRITICAL: The Control Type
+      # -------------------------------------------------------------------------
+      command_in_type: "speed_units"
+      
+      # -------------------------------------------------------------------------
+      # Dimensions and Scaling
+      # -------------------------------------------------------------------------
+      scale:
+        linear: 0.6
+        rotational: 0.3
+        joint: 0.01
+
+      # -------------------------------------------------------------------------
+      # Communication Topics
+      # -------------------------------------------------------------------------
+      # Listen to the Bridge
+      joint_topic: "/joint_states_servo"
+      
+      # Send to the active controller
+      command_out_topic: "/scaled_joint_trajectory_controller/joint_trajectory"
+      
+      # Incoming IMU commands
+      cartesian_command_in_topic: "/servo_server/delta_twist_cmds"
+      status_topic: "/servo_server/status"
+
+      # -------------------------------------------------------------------------
+      # Control Loop Properties
+      # -------------------------------------------------------------------------
+      publish_period: 0.033  # 30Hz
+      low_pass_filter_coeff: 2.0
+      command_out_type: "trajectory_msgs/JointTrajectory"
+      publish_joint_positions: true
+      publish_joint_velocities: true
+      publish_joint_accelerations: false
+
+      # -------------------------------------------------------------------------
+      # MoveIt Frame Properties
+      # -------------------------------------------------------------------------
+      move_group_name: "ur_manipulator"
+      planning_frame: "base_link"
+      ee_frame_name: "tool0"
+      robot_link_command_frame: "base_link"
+
+      # -------------------------------------------------------------------------
+      # Safety & Collision
+      # -------------------------------------------------------------------------
+      check_collisions: true
+      collision_check_rate: 10.0
+      self_collision_proximity_threshold: 0.01
+      scene_collision_proximity_threshold: 0.02
+      incoming_command_timeout: 0.5
+      num_outgoing_halt_msgs_to_publish: 4
+
+      # -------------------------------------------------------------------------
+      # Singularity Handling
+      # -------------------------------------------------------------------------
+      lower_singularity_threshold: 17.0
+      hard_stop_singularity_threshold: 30.0
+      joint_limit_margin: 0.1
+      leaving_singularity_threshold_multiplier: 2.0
+
+      # -------------------------------------------------------------------------
+      # System
+      # -------------------------------------------------------------------------
+      use_gazebo: false
+      is_primary_planning_scene_monitor: true

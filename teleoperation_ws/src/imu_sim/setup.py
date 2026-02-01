@@ -29,6 +29,7 @@ setup(
             'imu_sim = imu_sim.imu_sim_server:main',
             'safety_node = imu_sim.safety_node:main',
             'clock_bridge = imu_sim.clock_bridge:main',
+            'qos_bridge = imu_sim.qos_bridge:main',  # <--- ADD THIS LINE
         ],
     },
 )
