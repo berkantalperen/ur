@@ -10,7 +10,7 @@ class QosBridge(Node):
         
         # 1. FEEDBACK: Driver -> MoveIt
         # We listen to the driver and remove 'isolated_' so MoveIt is happy
-        sub_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        sub_qos = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
         self.sub_joints = self.create_subscription(JointState, '/joint_states', self.joint_callback, sub_qos)
         self.pub_joints = self.create_publisher(JointState, '/joint_states_fixed', 10)
 
