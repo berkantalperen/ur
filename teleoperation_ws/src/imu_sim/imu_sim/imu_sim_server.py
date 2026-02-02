@@ -9,7 +9,7 @@ class IMUServer(Node):
         super().__init__('imu_sim_server')
         self.server = InteractiveMarkerServer(self, 'imu_input')
         self.pub = self.create_publisher(PoseStamped, '/teleop/target_raw', 10)
-        self.pos = [0.4, 0.0, 0.4]
+        self.pos = [0.4, 0.0, 0.4] 
         
         self.make_marker()
         self.create_timer(0.05, self.publish_pose)
@@ -22,6 +22,7 @@ class IMUServer(Node):
         int_marker.pose.position.x, int_marker.pose.position.y, int_marker.pose.position.z = self.pos
         int_marker.scale = 0.2
 
+        # 1. The Green Sphere Visual
         visual = InteractiveMarkerControl(always_visible=True)
         sphere = Marker(type=Marker.SPHERE)
         sphere.scale.x = sphere.scale.y = sphere.scale.z = 0.06
@@ -29,11 +30,29 @@ class IMUServer(Node):
         visual.markers.append(sphere)
         int_marker.controls.append(visual)
 
-        move = InteractiveMarkerControl(name="move_3d", interaction_mode=InteractiveMarkerControl.MOVE_3D)
-        int_marker.controls.append(move)
+        # 2. Add Directional Controls (Arrows)
+        self.add_axis_control(int_marker, 1, 0, 0, "move_x") # X Axis
+        self.add_axis_control(int_marker, 0, 1, 0, "move_y") # Y Axis
+        self.add_axis_control(int_marker, 0, 0, 1, "move_z") # Z Axis
+
+        # 3. Add 3D Free Move (Drag the sphere itself)
+        move_3d = InteractiveMarkerControl()
+        move_3d.name = "move_3d"
+        move_3d.interaction_mode = InteractiveMarkerControl.MOVE_3D
+        int_marker.controls.append(move_3d)
 
         self.server.insert(int_marker, feedback_callback=self.process_feedback)
         self.server.applyChanges()
+
+    def add_axis_control(self, marker, x, y, z, name):
+        control = InteractiveMarkerControl()
+        control.orientation.w = 1.0
+        control.orientation.x = float(x)
+        control.orientation.y = float(y)
+        control.orientation.z = float(z)
+        control.name = name
+        control.interaction_mode = InteractiveMarkerControl.MOVE_AXIS
+        marker.controls.append(control)
 
     def process_feedback(self, fb):
         p = fb.pose.position
@@ -44,6 +63,8 @@ class IMUServer(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.header.frame_id = "base_link"
         msg.pose.position.x, msg.pose.position.y, msg.pose.position.z = self.pos
+        # Default orientation pointing down
+        msg.pose.orientation.x = 1.0
         self.pub.publish(msg)
 
 def main(args=None):
