@@ -26,9 +26,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'imu_sim = imu_sim.imu_sim_server:main',
+            'imu_sim_server = imu_sim.imu_sim_server:main',
             'safety_node = imu_sim.safety_node:main',
-            'clock_bridge = imu_sim.clock_bridge:main',
+            'joint_state_relay = imu_sim.joint_state_relay:main',
         ],
     },
 )

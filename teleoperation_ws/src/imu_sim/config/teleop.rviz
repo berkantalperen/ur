@@ -7,7 +7,6 @@ Panels:
         - /Global Options1
         - /Status1
         - /InteractiveMarkers1
-        - /Marker1
       Splitter Ratio: 0.5
     Tree Height: 557
 Visualization Manager:
@@ -45,7 +44,7 @@ Visualization Manager:
       Visual Enabled: true
     - Class: rviz_default_plugins/InteractiveMarkers
       Enabled: true
-      Interactive Markers Namespace: /imu_sim_input
+      Interactive Markers Namespace: /imu_input  # <--- FIXED NAMESPACE
       Name: InteractiveMarkers
       Show Axes: false
       Show Descriptions: true

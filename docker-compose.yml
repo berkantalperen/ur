@@ -21,3 +21,15 @@ services:
       
     stdin_open: true
     tty: true
+
+  ursim:
+    image: universalrobots/ursim_e-series
+    container_name: ursim_ur5e
+
+    # LINUX NETWORKING: Use host networking to keep URSim reachable at localhost
+    network_mode: "host"
+
+    # Persist URCaps and programs between runs
+    volumes:
+      - ./.ursim/urcaps:/urcaps
+      - ./.ursim/programs:/ursim/programs

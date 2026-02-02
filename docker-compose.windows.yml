@@ -2,13 +2,20 @@
 services:
   dev:
     # Use the same image, just change how it connects
+    # Windows: override Linux host networking with bridge networking
     network_mode: "bridge"
-    ports:
-      # Forward the Reverse Interface port (Robot -> Driver)
-      - "50002:50002" 
-      # Optional: Dashboard server, etc.
-      - "29999:29999"
 
     environment:
       # Point display to the Windows Host (requires VcXsrv installed)
       - DISPLAY=host.docker.internal:0.0
+
+  ursim:
+    # Windows/macOS: host networking is not supported, publish ports instead
+    network_mode: "bridge"
+    ports:
+      # URSim UI (browser/VNC)
+      - "6080:6080"
+      - "5900:5900"
+      # UR interfaces used by the driver
+      - "29999:29999"
+      - "30001-30004:30001-30004"
