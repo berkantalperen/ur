@@ -28,7 +28,7 @@ setup(
         'console_scripts': [
             'imu_sim_server = imu_sim.imu_sim_server:main',
             'safety_node = imu_sim.safety_node:main',
-            'joint_state_relay = imu_sim.joint_state_relay:main',
+            'universal_bridge = imu_sim.universal_bridge:main', # <--- ADD THIS
         ],
     },
 )

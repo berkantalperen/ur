@@ -8,7 +8,7 @@
       joint: 0.5
 
     ## Properties of outgoing commands
-    publish_period: 0.01
+    publish_period: 0.034
     low_pass_filter_coeff: 2.0
     command_out_type: "trajectory_msgs/JointTrajectory"
     publish_joint_positions: true
@@ -23,12 +23,12 @@
     robot_link_command_frame: "base_link"
 
     ## Stopping behaviour
-    incoming_command_timeout: 0.1
+    incoming_command_timeout: 1.0
     num_outgoing_halt_msgs_to_publish: 4
 
     ## Singularity thresholds
-    lower_singularity_threshold: 15.0
-    hard_stop_singularity_threshold: 30.0
+    lower_singularity_threshold: 1000.0
+    hard_stop_singularity_threshold: 2000.0
     joint_limit_margins: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 
     ## Topic names (ABSOLUTE PATHS)
@@ -40,3 +40,24 @@
     ## Collision checking
     check_collisions: false
     collision_check_rate: 10.0
+
+
+    ## Joint Topic
+    joint_topic: /joint_states_servo
+
+    ## COMMAND OUT TOPIC
+    command_out_topic: /scaled_joint_trajectory_controller/joint_trajectory
+
+    ## COMMAND OUT TYPE (Force it to std_msgs/Float64MultiArray if trajectory fails, but try Trajectory first)
+    # command_out_type: std_msgs/Float64MultiArray 
+
+    ## JOINT NAMES (Force MoveIt to publish in this specific order to match the driver)
+    move_group_name: ur_manipulator
+    # Add this list EXACTLY matching the driver's alphabetical order:
+    joint_names: 
+      - elbow_joint
+      - shoulder_lift_joint
+      - shoulder_pan_joint
+      - wrist_1_joint
+      - wrist_2_joint
+      - wrist_3_joint
