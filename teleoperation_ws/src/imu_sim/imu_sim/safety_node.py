@@ -12,12 +12,12 @@ class SafetyNode(Node):
         super().__init__('safety_node')
 
         # 1. Configuration
-        self.x_lim = [0.2, 0.6]  
+        self.x_lim = [-0.6, -0.2]  
         self.y_lim = [-0.4, 0.4] 
-        self.z_lim = [0.1, 0.6]  
+        self.z_lim = [0.4, 0.8]  
         
         self.p_gain = 2.0 
-        self.max_lin_vel = 0.5 
+        self.max_lin_vel = 0.5
 
         # CRITICAL: Match the Relay's time offset (50ms)
         # This ensures commands appear "fresh" relative to the robot state

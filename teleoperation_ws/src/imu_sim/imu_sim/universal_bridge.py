@@ -1,8 +1,8 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
-from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
-from rclpy.time import Time
+from std_msgs.msg import Float64MultiArray
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy
 
 class UniversalBridge(Node):
     def __init__(self):
@@ -22,40 +22,88 @@ class UniversalBridge(Node):
         ]
         
         # Mappings
-        # Input: Alpha(Source) -> Kinematic(Target)
-        # Alpha: [Elbow(0), Lift(1), Pan(2), W1(3), W2(4), W3(5)]
-        # Target Pan(0) comes from Source(2)
-        self.input_map = [2, 1, 0, 3, 4, 5] 
+        # Input: alpha[source_i] -> kinematic[target_i]
+        # kinematic[0]=alpha[2], kinematic[1]=alpha[1], kinematic[2]=alpha[0], ...
+        self.input_map = [2, 1, 0, 3, 4, 5]
         
-        # Output: Kinematic(Source) -> Alpha(Target)
-        # We perform the exact same swap in reverse (Symmetric swap)
-        self.output_map = [2, 1, 0, 3, 4, 5]
+        # Output: kinematic[source_i] -> alpha[target_i]  
+        # For reordering MoveIt output (kinematic) -> Driver input (alpha)
+        # alpha[0]=kinematic[2], alpha[1]=kinematic[1], alpha[2]=kinematic[0]
+        self.output_map = [2, 1, 0, 3, 4, 5]  # alpha_target_idx -> kinematic_source_idx
 
         # --- STATE ---
         self.latest_js_msg = None
 
+        # --- QoS PROFILES ---
+        # Match the joint_state_broadcaster's QoS (RELIABLE + TRANSIENT_LOCAL)
+        js_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL
+        )
+        
+        # For publishing to servo - MoveIt Servo uses BEST_EFFORT subscription
+        # A BEST_EFFORT subscriber CANNOT receive from a RELIABLE publisher!
+        servo_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE
+        )
+
         # --- COMMUNICATIONS ---
-        # 1. Input: Driver -> Bridge
-        self.sub_js = self.create_subscription(JointState, '/joint_states', self.js_callback, 10)
+        # 1. Input: Driver -> Bridge (use matching QoS)
+        self.sub_js = self.create_subscription(JointState, '/joint_states', self.js_callback, js_qos)
         
-        # 2. Output: Bridge -> MoveIt (Fixed Rate Publisher)
-        self.pub_js = self.create_publisher(JointState, '/joint_states_servo', 10)
+        # 2. Output: Bridge -> MoveIt (use BEST_EFFORT to match servo's subscription)
+        self.pub_js = self.create_publisher(JointState, '/joint_states_servo', servo_qos)
         
-        # 3. Input: MoveIt -> Bridge
-        self.sub_cmd = self.create_subscription(JointTrajectory, '/servo/trajectory_raw', self.cmd_callback, 10)
+        # QoS for receiving from servo (TRANSIENT_LOCAL publisher)
+        cmd_qos = QoSProfile(
+            depth=10,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL
+        )
         
-        # 4. Output: Bridge -> Driver
-        self.pub_cmd = self.create_publisher(JointTrajectory, '/scaled_joint_trajectory_controller/joint_trajectory', 10)
+        # 3. Input: MoveIt Servo -> Bridge (Float64MultiArray velocities in kinematic order)
+        self.sub_cmd = self.create_subscription(
+            Float64MultiArray, 
+            '/servo/velocity_raw',  # Servo outputs here
+            self.cmd_callback, 
+            cmd_qos
+        )
+        
+        # 4. Output: Bridge -> forward_velocity_controller (Float64MultiArray in alpha order)
+        self.pub_cmd = self.create_publisher(
+            Float64MultiArray,
+            '/forward_velocity_controller/commands',
+            10
+        )
 
         # --- TIMER (The Master Clock) ---
         # We publish JointStates at 50Hz regardless of Driver Jitter
         self.create_timer(0.02, self.publish_clean_state)
         
-        self.get_logger().info("Universal Bridge Started: Master Clock + Reordering Active")
+        # Debug timer to show status even when not receiving messages
+        self.create_timer(2.0, self.status_timer_callback)
+        
+        self.get_logger().info("Universal Bridge Started: Master Clock + Velocity Reordering Active")
+        self.get_logger().info(f"Subscribed to: /joint_states (QoS: RELIABLE, TRANSIENT_LOCAL)")
+        self.get_logger().info(f"Publishing to: /joint_states_servo (QoS: BEST_EFFORT, VOLATILE)")
+        self.msg_count = 0  # Debug counter
+        
+    def status_timer_callback(self):
+        """Report status every 2 seconds"""
+        if self.latest_js_msg is None:
+            self.get_logger().warn("No /joint_states messages received yet!")
+        else:
+            self.get_logger().info(f"Status: Received {self.msg_count} messages total")
 
     def js_callback(self, msg):
         # Just store the data, don't publish yet. Let the Timer handle timing.
         self.latest_js_msg = msg
+        self.msg_count += 1
+        if self.msg_count % 500 == 1:  # Log every 500 messages (~1 sec at 500Hz)
+            self.get_logger().info(f"Received /joint_states msg #{self.msg_count}")
 
     def publish_clean_state(self):
         if self.latest_js_msg is None:
@@ -67,10 +115,10 @@ class UniversalBridge(Node):
         clean_msg.header.frame_id = 'base_link'
         clean_msg.name = self.kinematic_order
         
-        # 2. Initialize Empty Lists
+        # 2. Initialize Lists
         clean_msg.position = [0.0] * 6
-        clean_msg.velocity = [0.0] * 6
-        clean_msg.effort = [0.0] * 6
+        clean_msg.velocity = [0.0] * 6  # Include velocities - some monitors need them
+        clean_msg.effort = []    # Don't send effort
 
         # 3. Reorder Data (Alpha -> Kinematic)
         # If driver sends partial message, we skip to avoid crash
@@ -80,45 +128,28 @@ class UniversalBridge(Node):
         try:
             for target_i, source_i in enumerate(self.input_map):
                 clean_msg.position[target_i] = self.latest_js_msg.position[source_i]
-                if self.latest_js_msg.velocity:
+                # Also reorder velocities if present
+                if len(self.latest_js_msg.velocity) >= 6:
                     clean_msg.velocity[target_i] = self.latest_js_msg.velocity[source_i]
-                if self.latest_js_msg.effort:
-                    clean_msg.effort[target_i] = self.latest_js_msg.effort[source_i]
             
             self.pub_js.publish(clean_msg)
         except Exception:
             pass # Ignore glitches
 
     def cmd_callback(self, msg):
-        # MoveIt sends Kinematic -> We convert to Alpha -> Send to Driver
-        if not msg.points:
+        """
+        Receive velocity commands from MoveIt Servo in kinematic order,
+        reorder to alphabetical order, and forward to the driver.
+        """
+        if len(msg.data) < 6:
             return
 
-        new_msg = JointTrajectory()
-        new_msg.header = msg.header
-        new_msg.joint_names = self.alpha_order # Force Alpha Names
+        # Reorder velocities: Kinematic -> Alpha
+        new_msg = Float64MultiArray()
+        new_msg.data = [0.0] * 6
         
-        for point in msg.points:
-            if len(point.positions) < 6:
-                continue
-
-            new_point = JointTrajectoryPoint()
-            new_point.time_from_start = point.time_from_start
-            new_point.positions = [0.0] * 6
-            new_point.velocities = [0.0] * 6 if point.velocities else []
-            new_point.accelerations = [0.0] * 6 if point.accelerations else []
-            new_point.effort = [] 
-
-            # Reorder (Kinematic -> Alpha)
-            for target_i, source_i in enumerate(self.output_map):
-                new_point.positions[target_i] = point.positions[source_i]
-                
-                if new_point.velocities:
-                    new_point.velocities[target_i] = point.velocities[source_i]
-                if new_point.accelerations:
-                    new_point.accelerations[target_i] = point.accelerations[source_i]
-
-            new_msg.points.append(new_point)
+        for alpha_idx, kinematic_idx in enumerate(self.output_map):
+            new_msg.data[alpha_idx] = msg.data[kinematic_idx]
         
         self.pub_cmd.publish(new_msg)
 
