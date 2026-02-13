@@ -1,0 +1,4 @@
+ros2 launch ur_robot_driver ur_control.launch.py   ur_type:=ur5e   robot_ip:=127.0.0.1   launch_rviz:=false
+ros2 launch ur_servo_demo ur_servo_demo.launch.py
+ros2 service call /servo_node/switch_command_type   moveit_msgs/srv/ServoCommandType "{command_type: 1}"
+ros2 run ur_servo_demo servo_keyboard
