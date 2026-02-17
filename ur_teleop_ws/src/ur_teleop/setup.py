@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 from glob import glob
 
-package_name = 'imu_sim'
+package_name = 'ur_teleop'
 
 setup(
     name=package_name,
@@ -12,23 +12,23 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        
-        # --- ADD THESE TWO LINES ---
+        # Include Launch Files
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
-        (os.path.join('share', package_name, 'config'), glob('config/*')),
+        # Include Config Files
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
-    install_requires=['setuptools', 'scipy', 'matplotlib', 'PyQt5'],
+    install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='berkant',
-    maintainer_email='berkant@todo.todo',
-    description='Teleoperation IMU Simulator',
+    maintainer='berkantalperen',
+    maintainer_email='berkantalperen@todo.todo',
+    description='TODO: Package description',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'imu_sim_server = imu_sim.imu_sim_server:main',
-            'safety_node = imu_sim.safety_node:main',
-            'universal_bridge = imu_sim.universal_bridge:main', # <--- ADD THIS
+            'pose_controller = ur_teleop.pose_controller:main',
+            'hand_pose_sim = ur_teleop.hand_pose_sim:main',  # <--- ADD THIS
+            'imu_real_driver = ur_teleop.imu_real_driver:main', # <--- ADD THIS
         ],
     },
 )
