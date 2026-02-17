@@ -24,6 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'servo_keyboard = ur_servo_demo.servo_keyboard:main',
+            'joint_slider = ur_servo_demo.joint_slider:main',  # <--- ADD THIS
+            'pose_demo = ur_servo_demo.pose_demo:main', # <--- Add this
         ],
     },
 )
